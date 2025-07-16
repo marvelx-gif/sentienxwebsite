@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TradeTitan 2.0 Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background-color: #0f172a;
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 2rem;
+    }
+
+    .dashboard-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      max-width: 1400px;
+      margin: auto;
+    }
+
+    .full-width {
+      grid-column: span 2;
+    }
+
+    .card {
+      background-color: #1e293b;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
+
+    h2, h3 {
+      color: #38bdf8;
+      margin-bottom: 1rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+
+    .stat-box {
+      background-color: #334155;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      text-align: center;
+    }
+
+    .stat-box span {
+      display: block;
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-top: 0.3rem;
+      color: #a5f3fc;
+    }
+
+    canvas {
+      width: 100% !important;
+      max-height: 350px;
+    }
+
+    .ai-summary {
+      background-color: #0f172a;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      color: #94a3b8;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 900px) {
+      .dashboard-container {
+        grid-template-columns: 1fr;
+      }
+
+      .full-width {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="dashboard-container">
+
+    <div class="card full-width">
+      <h2 id="chartTitle">Profit & Loss Overview</h2>
+      <canvas id="plChart"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>Performance Stats</h3>
+      <div class="stats-grid">
+        <div class="stat-box">
+          Total Trades
+          <span id="tradeCount">0</span>
+        </div>
+        <div class="stat-box">
+          Win Rate
+          <span id="winRate">--%</span>
+        </div>
+        <div class="stat-box">
+          Max Drawdown
+          <span id="maxDrawdown">$0</span>
+        </div>
+        <div class="stat-box">
+          Current Streak
+          <span id="streak">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>AI Market Summary</h3>
+      <div class="ai-summary" id="aiSummary">
+        Analyzing trades... Market appears moderately volatile with potential bullish signals forming.
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function generateMockData() {
+      const data = [];
+      const now = new Date();
+      for (let i = 19; i >= 0; i--) {
+        const past = new Date(now.getTime() - i * 3 * 60 * 1000);
+        const label = `${past.getHours()}:${String(past.getMinutes()).padStart(2, '0')}`;
+        const profit = Math.floor(Math.random() * 2000 - 1000);
+        data.push({ time: label, profit });
+      }
+      return data;
+    }
+
+    function updateChartTitle(data) {
+      const total = data.reduce((sum, d) => sum + d.profit, 0);
+      const color = total >= 0 ? '#22c55e' : '#f87171';
+      document.getElementById('chartTitle').innerHTML = 
+        `Profit & Loss Overview (Total: <span style="color:${color}">$${total}</span>)`;
+    }
+
+    function updateStats(data) {
+      const totalTrades = data.length;
+      const wins = data.filter(d => d.profit > 0).length;
+      const winRate = Math.round((wins / totalTrades) * 100);
+      const maxDrawdown = Math.min(...data.map(d => d.profit));
+      const streak = calculateStreak(data.map(d => d.profit));
+
+      document.getElementById('tradeCount').textContent = totalTrades;
+      document.getElementById('winRate').textContent = `${winRate}%`;
+      document.getElementById('maxDrawdown').textContent = `$${maxDrawdown}`;
+      document.getElementById('streak').textContent = streak;
+    }
+
+    function calculateStreak(data) {
+      let count = 0;
+      for (let i = data.length - 1; i >= 0; i--) {
+        if (data[i] > 0) count++;
+        else break;
+      }
+      return count;
+    }
+
+    const ctx = document.getElementById('plChart').getContext('2d');
+    let chartData = generateMockData();
+    updateChartTitle(chartData);
+    updateStats(chartData);
+
+    const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: chartData.map(d => d.time),
+        datasets: [
+          {
+            label: 'Profit',
+            type: 'bar',
+            data: chartData.map(d => d.profit),
+            backgroundColor: chartData.map(d => d.profit >= 0 ? '#38bdf8' : '#f87171'),
+            borderRadius: 5,
+          },
+          {
+            label: 'Profit Trend',
+            type: 'line',
+            data: chartData.map(d => d.profit),
+            borderColor: '#22c55e',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.4,
+            pointRadius: 0,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        animation: {
+          duration: 1000,
+          easing: 'easeOutQuart'
+        },
+        scales: {
+          x: {
+            ticks: { color: '#cbd5e1' },
+            grid: { color: '#1e293b' }
+          },
+          y: {
+            beginAtZero: false,
+            ticks: { color: '#cbd5e1' },
+            grid: { color: '#1e293b' }
+          }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: context => `Profit: $${context.raw}`
+            }
+          },
+          legend: {
+            labels: { color: '#94a3b8' }
+          }
+        }
+      }
+    });
+
+    function updateChart() {
+      const newData = generateMockData();
+      chart.data.labels = newData.map(d => d.time);
+      chart.data.datasets[0].data = newData.map(d => d.profit);
+      chart.data.datasets[0].backgroundColor = newData.map(d => d.profit >= 0 ? '#38bdf8' : '#f87171');
+      chart.data.datasets[1].data = newData.map(d => d.profit);
+      chart.update();
+
+      updateChartTitle(newData);
+      updateStats(newData);
+      document.getElementById('aiSummary').textContent = generateAISummary(newData);
+    }
+
+    function generateAISummary(data) {
+      const avg = data.reduce((sum, d) => sum + d.profit, 0) / data.length;
+      if (avg > 200) return "Strong bullish momentum detected. Continue trend-following strategy.";
+      if (avg < -200) return "Losses outweigh gains. Recommend switching to risk-off mode.";
+      return "Sideways market conditions detected. Maintain neutral or range-bound strategy.";
+    }
+
+    setInterval(updateChart, 180000); // every 3 minutes
+  </script>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TradeTitan Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background-color: #111827;
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 2rem;
+    }
+    .card {
+      background-color: #1f2937;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+      max-width: 1000px;
+      margin: auto;
+      margin-bottom: 2rem;
+    }
+    h2, h3 {
+      color: #38bdf8;
+      margin-bottom: 0.75rem;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .stat-box {
+      background-color: #374151;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      text-align: center;
+    }
+    .stat-box span {
+      display: block;
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-top: 0.3rem;
+    }
+    canvas {
+      max-width: 100%;
+      height: 300px;
+    }
+    .ai-summary {
+      background-color: #1e293b;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      color: #a5f3fc;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2 id="chartTitle">Profit & Loss (Loading...)</h2>
+    <canvas id="plChart"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>Performance Summary</h3>
+    <div class="stats">
+      <div class="stat-box">
+        Total Trades
+        <span id="tradeCount">0</span>
+      </div>
+      <div class="stat-box">
+        Win Rate
+        <span id="winRate">--%</span>
+      </div>
+      <div class="stat-box">
+        Max Drawdown
+        <span id="maxDrawdown">$0</span>
+      </div>
+      <div class="stat-box">
+        Current Streak
+        <span id="streak">0</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>AI Market Summary</h3>
+    <div class="ai-summary" id="aiSummary">
+      Analyzing recent trade data... market appears moderately volatile with potential for upward correction. Strategy is holding well under current conditions.
+    </div>
+  </div>
+
+  <script>
+    function generateMockData() {
+      const data = [];
+      const now = new Date();
+      for (let i = 19; i >= 0; i--) {
+        const past = new Date(now.getTime() - i * 3 * 60 * 1000);
+        const label = `${past.getHours()}:${String(past.getMinutes()).padStart(2, '0')}`;
+        const profit = Math.floor(Math.random() * 2000 - 1000);
+        data.push({ time: label, profit });
+      }
+      return data;
+    }
+
+    function updateChartTitle(data) {
+      const total = data.reduce((sum, d) => sum + d.profit, 0);
+      const color = total >= 0 ? '#22c55e' : '#f87171';
+      document.getElementById('chartTitle').innerHTML = 
+        `Profit & Loss (Total: <span style="color:${color}">$${total}</span>)`;
+    }
+
+    function updateStats(data) {
+      const totalTrades = data.length;
+      const wins = data.filter(d => d.profit > 0).length;
+      const losses = totalTrades - wins;
+      const winRate = Math.round((wins / totalTrades) * 100);
+      const maxDrawdown = Math.min(...data.map(d => d.profit));
+      const streak = calculateStreak(data.map(d => d.profit));
+
+      document.getElementById('tradeCount').textContent = totalTrades;
+      document.getElementById('winRate').textContent = `${winRate}%`;
+      document.getElementById('maxDrawdown').textContent = `$${maxDrawdown}`;
+      document.getElementById('streak').textContent = streak;
+    }
+
+    function calculateStreak(data) {
+      let count = 0;
+      for (let i = data.length - 1; i >= 0; i--) {
+        if (data[i] > 0) count++;
+        else break;
+      }
+      return count;
+    }
+
+    const ctx = document.getElementById('plChart').getContext('2d');
+    let chartData = generateMockData();
+    updateChartTitle(chartData);
+    updateStats(chartData);
+
+    const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: chartData.map(d => d.time),
+        datasets: [
+          {
+            label: 'Profit',
+            type: 'bar',
+            data: chartData.map(d => d.profit),
+            backgroundColor: chartData.map(d => d.profit >= 0 ? '#38bdf8' : '#f87171'),
+            borderRadius: 5,
+          },
+          {
+            label: 'Profit Trend',
+            type: 'line',
+            data: chartData.map(d => d.profit),
+            borderColor: '#22c55e',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.3,
+            pointRadius: 0,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        animation: {
+          duration: 800,
+          easing: 'easeOutQuart'
+        },
+        scales: {
+          x: {
+            ticks: { color: '#ccc' },
+            grid: { color: '#2d3748' }
+          },
+          y: {
+            beginAtZero: false,
+            ticks: { color: '#ccc' },
+            grid: { color: '#2d3748' }
+          }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: context => `Profit: $${context.raw}`
+            }
+          },
+          legend: {
+            labels: { color: '#ccc' }
+          }
+        }
+      }
+    });
+
+    function updateChart() {
+      const newData = generateMockData();
+      chart.data.labels = newData.map(d => d.time);
+      chart.data.datasets[0].data = newData.map(d => d.profit);
+      chart.data.datasets[0].backgroundColor = newData.map(d => d.profit >= 0 ? '#38bdf8' : '#f87171');
+      chart.data.datasets[1].data = newData.map(d => d.profit);
+      chart.update();
+
+      updateChartTitle(newData);
+      updateStats(newData);
+      document.getElementById('aiSummary').textContent = generateAISummary(newData);
+    }
+
+    function generateAISummary(data) {
+      const avg = data.reduce((sum, d) => sum + d.profit, 0) / data.length;
+      if (avg > 200) return "Strong bullish sentiment detected. Strategy performing well — continue trend-based entries.";
+      if (avg < -200) return "High volatility and losses detected. Strategy adjustment or pause recommended.";
+      return "Market stable. Maintain current strategy with caution.";
+    }
+
+    // Refresh every 3 minutes (180000 ms)
+    setInterval(updateChart, 180000);
+  </script>
+
+</body>
+</html>
